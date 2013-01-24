@@ -3,7 +3,8 @@ from django.test import TestCase
 from django.test.utils import override_settings
 from django.contrib.auth.models import (Group, User,
     SiteProfileNotAvailable, UserManager)
-
+from django.db import router, connections
+from django.utils import unittest
 
 class ProfileTestCase(TestCase):
     fixtures = ['authtestdata.json']
@@ -59,6 +60,7 @@ NaturalKeysTestCase = override_settings(USE_TZ=False)(NaturalKeysTestCase)
 class LoadDataWithoutNaturalKeysTestCase(TestCase):
     fixtures = ['regular.json']
 
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_user_is_created_and_added_to_group(self):
         user = User.objects.get(username='my_username')
         group = Group.objects.get(name='my_group')
@@ -70,6 +72,7 @@ LoadDataWithoutNaturalKeysTestCase = override_settings(USE_TZ=False)(LoadDataWit
 class LoadDataWithNaturalKeysTestCase(TestCase):
     fixtures = ['natural.json']
 
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_user_is_created_and_added_to_group(self):
         user = User.objects.get(username='my_username')
         group = Group.objects.get(name='my_group')

@@ -11,7 +11,7 @@ from django.test.utils import override_settings
 from django.utils.encoding import force_unicode
 from django.utils import translation, unittest
 from django.utils.translation import ugettext as _
-
+from django.db import router, connections
 
 class UserCreationFormTest(TestCase):
 
@@ -214,7 +214,7 @@ class UserChangeFormTest(TestCase):
 
     fixtures = ['authtestdata.json']
 
-    @unittest.skipIf(not connection.features.supports_joins, 'Requires JOIN support')
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_username_validity(self):
         user = User.objects.get(username='testclient')
         data = {'username': 'not valid'}
@@ -238,18 +238,21 @@ class UserChangeFormTest(TestCase):
         # Just check we can create it
         form = MyUserForm({})
 
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_bug_17944_empty_password(self):
         user = User.objects.get(username='empty_password')
         form = UserChangeForm(instance=user)
         # Just check that no error is raised.
         form.as_table()
 
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_bug_17944_unmanageable_password(self):
         user = User.objects.get(username='unmanageable_password')
         form = UserChangeForm(instance=user)
         # Just check that no error is raised.
         form.as_table()
 
+    @unittest.skipIf(not connections[router.db_for_read(User)].features.supports_joins, 'Requires JOIN support')
     def test_bug_17944_unknown_password_algorithm(self):
         user = User.objects.get(username='unknown_password')
         form = UserChangeForm(instance=user)
