@@ -7,7 +7,6 @@ def update_contenttypes(app, created_models, verbosity=2, **kwargs):
     Creates content types for models in the given app, removing any model
     entries that no longer have a matching model class.
     """
-    ContentType.objects.clear_cache()
     app_models = get_models(app)
     if not app_models:
         return
@@ -28,7 +27,7 @@ def update_contenttypes(app, created_models, verbosity=2, **kwargs):
         if model_name not in app_models
     ]
 
-    cts = ContentType.objects.bulk_create([
+    to_create = [
         ContentType(
             name=smart_unicode(model._meta.verbose_name_raw),
             app_label=app_label,
@@ -36,9 +35,13 @@ def update_contenttypes(app, created_models, verbosity=2, **kwargs):
         )
         for (model_name, model) in app_models.iteritems()
         if model_name not in content_types
-    ])
+    ]
+
+    for obj in to_create:
+        ContentType.objects.get_for_model(app_models[obj.model])
+
     if verbosity >= 2:
-        for ct in cts:
+        for ct in to_create:
             print "Adding content type '%s | %s'" % (ct.app_label, ct.model)
 
     # Confirm that the content type is stale before deletion.
@@ -64,6 +67,7 @@ If you're unsure, answer 'no'.
             for ct in to_remove:
                 if verbosity >= 2:
                     print "Deleting stale content type '%s | %s'" % (ct.app_label, ct.model)
+                ContentType.objects._remove_from_cache(ContentType.objects.db, ct)
                 ct.delete()
         else:
             if verbosity >= 2:

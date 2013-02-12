@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django.utils.encoding import smart_unicode, force_unicode
-
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 class ContentTypeManager(models.Manager):
 
     # Cache to avoid re-looking up ContentType objects all over the place.
@@ -36,11 +36,20 @@ class ContentTypeManager(models.Manager):
             # Load or create the ContentType entry. The smart_unicode() is
             # needed around opts.verbose_name_raw because name_raw might be a
             # django.utils.functional.__proxy__ object.
-            ct, created = self.get_or_create(
-                app_label = opts.app_label,
-                model = opts.object_name.lower(),
-                defaults = {'name': smart_unicode(opts.verbose_name_raw)},
-            )
+            try:
+                ct = self.get(app_label = opts.app_label, model = opts.object_name.lower())
+            except MultipleObjectsReturned:
+                cts = self.filter(app_label = opts.app_label, model = opts.object_name.lower()).all()
+
+                [ x.delete() for x in cts[1:]]
+                ct = cts[0]
+            except ObjectDoesNotExist:
+                ct = self.create(
+                    app_label = opts.app_label,
+                    model = opts.object_name.lower(),
+                    name=smart_unicode(opts.verbose_name_raw),
+                )
+
             self._add_to_cache(self.db, ct)
 
         return ct
@@ -116,6 +125,20 @@ class ContentTypeManager(models.Manager):
         key = (model._meta.app_label, model._meta.object_name.lower())
         self.__class__._cache.setdefault(using, {})[key] = ct
         self.__class__._cache.setdefault(using, {})[ct.id] = ct
+
+    def _remove_from_cache(self, using, ct):
+        model = ct.model_class()
+        if model is None:
+            return
+
+        key = (model._meta.app_label, model._meta.object_name.lower())
+
+        if using in self.__class__.cache and key in self.__class__.cache[using]:
+            del self.__class__.cache[using][key]
+
+        if using in self.__class__.cache and ct.id in self.__class__.cache[using]:
+            del self.__class__.cache[using][ct.id]
+
 
 class ContentType(models.Model):
     name = models.CharField(max_length=100)

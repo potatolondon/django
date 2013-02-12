@@ -52,6 +52,7 @@ class Command(NoArgsCommand):
                 if not msg.startswith('No module named') or 'management' not in msg:
                     raise
 
+
         db = options.get('database')
         connection = connections[db]
         cursor = connection.cursor()
