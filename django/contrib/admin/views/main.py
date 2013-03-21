@@ -359,10 +359,24 @@ class ChangeList(object):
         if self.search_fields and self.query:
             orm_lookups = [construct_search(str(search_field))
                            for search_field in self.search_fields]
+
+            search_set = None
             for bit in self.query.split():
-                or_queries = [models.Q(**{orm_lookup: bit})
-                              for orm_lookup in orm_lookups]
-                qs = qs.filter(reduce(operator.or_, or_queries))
+                res = []
+                for field_name, order_name in zip(self.search_fields, self.model_admin.ordering):
+                    res += qs.order_by(order_name).filter(models.Q(**{construct_search(str(field_name)): bit})).only('id').values_list('id', flat=True)
+
+                if search_set is None:
+                    search_set = set(res)
+                else:
+                    search_set = search_set & set(res)
+
+            if search_set is not None:
+                if search_set:
+                    qs = qs.filter(id__in=list(search_set))
+                else:
+                    qs = qs.none()
+
             if not use_distinct:
                 for search_spec in orm_lookups:
                     if lookup_needs_distinct(self.lookup_opts, search_spec):
